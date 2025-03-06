@@ -1,0 +1,8 @@
+//
+// Created by awilhelm on 03/03/2025.
+//
+
+#ifndef GENET_ENRCHSSEMENT_FREEGLUT_H
+#define GENET_ENRCHSSEMENT_FREEGLUT_H
+
+#endif //GENET_ENRCHSSEMENT_FREEGLUT_H
