@@ -282,7 +282,7 @@ void Display()
     //initialisation du générateur de nombres aléatoires
     srand(42);
 
-    glBegin(GL_QUADS);
+    glBegin(GL_TRIANGLES);
 
     double longueurX = Xmax - Xmin;
     double longueurY = Ymax - Ymin;
@@ -353,12 +353,18 @@ void Display()
 
 
 
-            glColor3f(r, g, b);
-            // Dessin du carré (face remplie) avec la nouvelle hauteur
+// Premier triangle (P1, P2, P3)
+            glColor3f(r,g, b);
             glVertex3f((x - barycentre.x) / scale, (zQuadrilatere - barycentre.z) / scale, (y - barycentre.y) / scale);
             glVertex3f((x + pas - barycentre.x) / scale, (zQuadrilatere - barycentre.z) / scale, (y - barycentre.y) / scale);
             glVertex3f((x + pas - barycentre.x) / scale, (zQuadrilatere - barycentre.z) / scale, (y + pas - barycentre.y) / scale);
+
+// Deuxième triangle (P1, P3, P4)
+            glColor3f(r, g, b);
+            glVertex3f((x - barycentre.x) / scale, (zQuadrilatere - barycentre.z) / scale, (y - barycentre.y) / scale);
+            glVertex3f((x + pas - barycentre.x) / scale, (zQuadrilatere - barycentre.z) / scale, (y + pas - barycentre.y) / scale);
             glVertex3f((x - barycentre.x) / scale, (zQuadrilatere - barycentre.z) / scale, (y + pas - barycentre.y) / scale);
+
         }
     }
 
