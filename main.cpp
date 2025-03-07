@@ -24,6 +24,12 @@
 
 //********************************************************
 using namespace std;
+struct Point3DRgb {
+    double x, y, z;
+    unsigned char r, g, b;
+};
+
+
 
 template<class T>
 class point3D
@@ -33,8 +39,11 @@ public:
     T x;
     T y;
     T z;
+    T r;
+    T g;
+    T b;
     point3D();
-    point3D(T& a,T& b,T& c);
+    point3D(T& a,T& b,T& c,T& d,T& e,T& f);
 };
 
 
@@ -47,10 +56,13 @@ point3D<T>::point3D():
 }
 
 template<class T>
-point3D<T>::point3D(T& a,T& b,T& c):
+point3D<T>::point3D(T& a,T& b,T& c,T& d,T& e,T& f):
         x(a),
         y(b),
-        z(c)
+        z(c),
+        r(d),
+        g(e),
+        b(f)
 {
 }
 //********************************************************
@@ -59,6 +71,10 @@ class point2D
 {
 
 public:
+    point2D(const double d, const double d1) {
+
+    }
+
     T x;
     T y;
     point2D();
@@ -80,28 +96,62 @@ point2D<T>::point2D(T& a,T& b):
 {
 }
 
+
+
+
 point3D<double> pointTemp,barycentre;
 vector< point3D<double> > nuage;
 double Xmin,Ymin,Zmin,Xmax,Ymax,Zmax;
-// Lecture du fichier facade.xyz
-void lireXYZ(const string& nomFichier) {
-    ifstream fichier(nomFichier);
-    if (!fichier.is_open()) {
-        cerr << "Erreur : Impossible d'ouvrir le fichier " << nomFichier << endl;
-        exit(1); // Arrêter le programme en cas d'erreur de fichier
-    }
+// Nouvelle méthode à ajouter dans votre main.cpp
+vector<point3D<double>> calculerElevationNuage(const vector<point3D<double>>& nuageInitial) {
+    vector<point3D<double>> nuageEleve;
 
-    string ligne;
-    while (getline(fichier, ligne)) {
-        stringstream ss(ligne);
-        double x, y, z;
-        if (ss >> x >> y >> z) {
-            nuage.emplace_back(x, y, z); // Ajoute les points dans le nuage
+    // Variables pour stocker les moyennes dans les limites du nuage
+    double moyenneZ = 0.0;
+    double moyenneR = 0.0, moyenneG = 0.0, moyenneB = 0.0;
+
+    // Compter les points dans le nuage principal (dans les limites)
+    size_t nombrePointsDansLimites = 0;
+
+    // Première passe : calcul des moyennes
+    for (const auto& point : nuageInitial) {
+        // Vérifier si le point est dans les limites du nuage principal
+        if (point.x >= Xmin && point.x <= Xmax &&
+            point.y >= Ymin && point.y <= Ymax) {
+            moyenneZ += point.z;
+            moyenneR += static_cast<double>(point.r);
+            moyenneG += static_cast<double>(point.g);
+            moyenneB += static_cast<double>(point.b);
+            nombrePointsDansLimites++;
         }
     }
 
-    fichier.close();
+    // Calculer les moyennes si des points sont trouvés
+    if (nombrePointsDansLimites > 0) {
+        moyenneZ /= nombrePointsDansLimites;
+        moyenneR /= nombrePointsDansLimites;
+        moyenneG /= nombrePointsDansLimites;
+        moyenneB /= nombrePointsDansLimites;
+    }
+
+    // Deuxième passe : créer le nouveau nuage
+    for (auto point : nuageInitial) {
+        // Si le point est dans les limites, remplacer ses valeurs
+        if (point.x >= Xmin && point.x <= Xmax &&
+            point.y >= Ymin && point.y <= Ymax) {
+            point.z = moyenneZ;  // Placer à la moyenne des Z
+
+            // Conversion sécurisée des moyennes en unsigned char
+            point.r = static_cast<unsigned char>(round(moyenneR));
+            point.g = static_cast<unsigned char>(round(moyenneG));
+            point.b = static_cast<unsigned char>(round(moyenneB));
+        }
+        nuageEleve.push_back(point);
+    }
+
+    return nuageEleve;
 }
+
 // Calcul des min, max et barycentre
 void calculExtremumsEtBarycentre() {
     // Initialisation des valeurs min/max
@@ -438,9 +488,12 @@ int main(int argc, char **argv)
             //b coordonnees en x
             //c coordonnees en y
             //d coordonnees en z
-            pointTemp.x=b;
-            pointTemp.y=c;
-            pointTemp.z=d;
+            pointTemp.x=a;
+            pointTemp.y=b;
+            pointTemp.z=c;
+            pointTemp.r=d;
+            pointTemp.g=e;
+            pointTemp.b=f;
             nuage.push_back(pointTemp);
 
 
@@ -450,6 +503,9 @@ int main(int argc, char **argv)
     fichier.close();
     cout  << "fichier xyz charge" << endl;
     calculExtremumsEtBarycentre();
+    nuage = calculerElevationNuage(nuage);
+    calculExtremumsEtBarycentre();
+
     cout << "nb de points dans le nuage : " << compteur << endl;
 
 
