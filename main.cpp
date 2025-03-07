@@ -23,7 +23,10 @@
 #include <GL/gl.h>
 
 //********************************************************
+
+
 using namespace std;
+int nombreDeDivisions = 30;
 struct Point3DRgb {
     double x, y, z;
     unsigned char r, g, b;
@@ -103,53 +106,60 @@ point3D<double> pointTemp,barycentre;
 vector< point3D<double> > nuage;
 double Xmin,Ymin,Zmin,Xmax,Ymax,Zmax;
 // Nouvelle méthode à ajouter dans votre main.cpp
-vector<point3D<double>> calculerElevationNuage(const vector<point3D<double>>& nuageInitial) {
-    vector<point3D<double>> nuageEleve;
+vector<point3D<double>> calculerElevationParQuadrilateres(const vector<point3D<double>>& nuageInitial) {
+    vector<point3D<double>> nuageTraite = nuageInitial;
 
-    // Variables pour stocker les moyennes dans les limites du nuage
-    double moyenneZ = 0.0;
-    double moyenneR = 0.0, moyenneG = 0.0, moyenneB = 0.0;
+    double longueurX = Xmax - Xmin;
+    double longueurY = Ymax - Ymin;
+    double longueurZ = Zmax - Zmin;
 
-    // Compter les points dans le nuage principal (dans les limites)
-    size_t nombrePointsDansLimites = 0;
+    double plusPetiteLongueur = std::min(longueurX, longueurY);
+    double pas = plusPetiteLongueur / nombreDeDivisions;
+    // Parcourir chaque quadrilatère
+    for (double x = Xmin; x < Xmax; x += pas) {
+        for (double z = Ymin; z < Ymax; z += pas) {
+            // Définir les limites du quadrilatère
 
-    // Première passe : calcul des moyennes
-    for (const auto& point : nuageInitial) {
-        // Vérifier si le point est dans les limites du nuage principal
-        if (point.x >= Xmin && point.x <= Xmax &&
-            point.y >= Ymin && point.y <= Ymax) {
-            moyenneZ += point.z;
-            moyenneR += static_cast<double>(point.r);
-            moyenneG += static_cast<double>(point.g);
-            moyenneB += static_cast<double>(point.b);
-            nombrePointsDansLimites++;
+            double quadX_min = x;
+            double quadX_max = x + pas;
+            double quadZ_min = z;
+            double quadZ_max = z + pas;
+
+            // Collecter les points dans ce quadrilatère
+            vector<point3D<double>> pointsDuQuadrilatere;
+            for (auto& point : nuageTraite) {
+                // Vérifier si le point est dans le quadrilatère
+                if (point.x >= quadX_min && point.x < quadX_max &&
+                    point.y >= quadZ_min && point.y < quadZ_max) {
+                    pointsDuQuadrilatere.push_back(point);
+                }
+            }
+
+            // Calculer l'élévation moyenne si des points sont présents
+            if (!pointsDuQuadrilatere.empty()) {
+                double elevationMoyenne = 0.0;
+                for (const auto& point : pointsDuQuadrilatere) {
+                    elevationMoyenne += point.z;
+                }
+                elevationMoyenne /= pointsDuQuadrilatere.size();
+
+                // Modifier l'élévation des points dans ce quadrilatère
+                for (auto& point : pointsDuQuadrilatere) {
+                    point.z = elevationMoyenne;
+                }
+
+                // Mettre à jour les points dans le nuage original
+                for (auto& point : nuageTraite) {
+                    if (point.x >= quadX_min && point.x < quadX_max &&
+                        point.y >= quadZ_min && point.y < quadZ_max) {
+                        point.z = elevationMoyenne;
+                    }
+                }
+            }
         }
     }
 
-    // Calculer les moyennes si des points sont trouvés
-    if (nombrePointsDansLimites > 0) {
-        moyenneZ /= nombrePointsDansLimites;
-        moyenneR /= nombrePointsDansLimites;
-        moyenneG /= nombrePointsDansLimites;
-        moyenneB /= nombrePointsDansLimites;
-    }
-
-    // Deuxième passe : créer le nouveau nuage
-    for (auto point : nuageInitial) {
-        // Si le point est dans les limites, remplacer ses valeurs
-        if (point.x >= Xmin && point.x <= Xmax &&
-            point.y >= Ymin && point.y <= Ymax) {
-            point.z = moyenneZ;  // Placer à la moyenne des Z
-
-            // Conversion sécurisée des moyennes en unsigned char
-            point.r = static_cast<unsigned char>(round(moyenneR));
-            point.g = static_cast<unsigned char>(round(moyenneG));
-            point.b = static_cast<unsigned char>(round(moyenneB));
-        }
-        nuageEleve.push_back(point);
-    }
-
-    return nuageEleve;
+    return nuageTraite;
 }
 
 // Calcul des min, max et barycentre
@@ -209,6 +219,8 @@ int perspective=20;
 
 void Display()
 {
+
+
     glClearColor(0, 0, 0, 0);
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -275,31 +287,83 @@ void Display()
     double longueurX = Xmax - Xmin;
     double longueurY = Ymax - Ymin;
     double longueurZ = Zmax - Zmin;
-
+    double pasX = longueurX / nombreDeDivisions;
+    double pasY = longueurY / nombreDeDivisions;
     double plusPetiteLongueur = std::min(longueurX, longueurY);
 
-    int nombreDeDivisions = 8; // Nombre de divisions souhaitées
     double pas = plusPetiteLongueur / nombreDeDivisions;
 
+// Calculer les élévations des quadrilatères
+    vector<vector<double>> elevationsQuadrilateres(nombreDeDivisions,
+                                                   vector<double>(nombreDeDivisions, Zmin));
+    vector<vector<float>> couleursMoyennesR(nombreDeDivisions,
+                                            vector<float>(nombreDeDivisions, 0.0f));
+    vector<vector<float>> couleursMoyennesG(nombreDeDivisions,
+                                            vector<float>(nombreDeDivisions, 0.0f));
+    vector<vector<float>> couleursMoyennesB(nombreDeDivisions,
+                                            vector<float>(nombreDeDivisions, 0.0f));
+    vector<vector<int>> compteurPoints(nombreDeDivisions,
+                                       vector<int>(nombreDeDivisions, 0));
+
+
+    for (const auto& point : nuage) {
+        int indexX = static_cast<int>((point.x - Xmin) / pasX);
+        int indexY = static_cast<int>((point.y - Ymin) / pasY);
+
+        // Vérifier les bornes
+        indexX = std::max(0, std::min(indexX, nombreDeDivisions - 1));
+        indexY = std::max(0, std::min(indexY, nombreDeDivisions - 1));
+
+        if (indexX >= 0 && indexX < nombreDeDivisions &&
+            indexY >= 0 && indexY < nombreDeDivisions) {
+            elevationsQuadrilateres[indexX][indexY] = std::max(
+                    elevationsQuadrilateres[indexX][indexY],
+                    point.z
+            );
+            // Accumulation des couleurs
+            couleursMoyennesR[indexX][indexY] += point.r;
+            couleursMoyennesG[indexX][indexY] += point.g;
+            couleursMoyennesB[indexX][indexY] += point.b;
+            compteurPoints[indexX][indexY]++;
+
+        }
+    }
+
 // Remplissage des cases avec des couleurs aléatoires
-    for (double x = Xmin; x < Xmax; x += pas) {
-        for (double z = Ymin; z < Ymax; z += pas) {
+    for (int i = 0; i < nombreDeDivisions; i++) {
+        for (int j = 0; j < nombreDeDivisions; j++) {
+            double x = Xmin + i * pasX;
+            double y = Ymin + j * pasY;
+            double zQuadrilatere = elevationsQuadrilateres[i][j];
 
-            // Générer une couleur aléatoire pour chaque case
-            float r = static_cast<float>(rand()) / RAND_MAX;
-            float g = static_cast<float>(rand()) / RAND_MAX;
-            float b = static_cast<float>(rand()) / RAND_MAX;
+            // Calcul de la couleur moyenne
+            float r = 0.0f, g = 0.0f, b = 0.0f;
+
+            if (compteurPoints[i][j] > 0) {
+                // Conversion et normalisation des couleurs
+                r = static_cast<float>(couleursMoyennesR[i][j] / compteurPoints[i][j]) / 255.0f;
+                g = static_cast<float>(couleursMoyennesG[i][j] / compteurPoints[i][j]) / 255.0f;
+                b = static_cast<float>(couleursMoyennesB[i][j] / compteurPoints[i][j]) / 255.0f;
+            }
+
+            // Forcer les valeurs de couleur dans la plage [0, 1]
+            r = std::max(0.0f, std::min(r, 1.0f));
+            g = std::max(0.0f, std::min(g, 1.0f));
+            b = std::max(0.0f, std::min(b, 1.0f));
+
+
+
             glColor3f(r, g, b);
-
-            // Dessin du carré (face remplie)
-            glVertex3f((x - barycentre.x) / scale, (Zmin - barycentre.z) / scale, (z - barycentre.y) / scale);
-            glVertex3f((x + pas - barycentre.x) / scale, (Zmin - barycentre.z) / scale, (z - barycentre.y) / scale);
-            glVertex3f((x + pas - barycentre.x) / scale, (Zmin - barycentre.z) / scale, (z + pas - barycentre.y) / scale);
-            glVertex3f((x - barycentre.x) / scale, (Zmin - barycentre.z) / scale, (z + pas - barycentre.y) / scale);
+            // Dessin du carré (face remplie) avec la nouvelle hauteur
+            glVertex3f((x - barycentre.x) / scale, (zQuadrilatere - barycentre.z) / scale, (y - barycentre.y) / scale);
+            glVertex3f((x + pas - barycentre.x) / scale, (zQuadrilatere - barycentre.z) / scale, (y - barycentre.y) / scale);
+            glVertex3f((x + pas - barycentre.x) / scale, (zQuadrilatere - barycentre.z) / scale, (y + pas - barycentre.y) / scale);
+            glVertex3f((x - barycentre.x) / scale, (zQuadrilatere - barycentre.z) / scale, (y + pas - barycentre.y) / scale);
         }
     }
 
     glEnd();
+
 
 
 
@@ -458,7 +522,7 @@ int main(int argc, char **argv)
 //int main(int argc, char argv[])
 {
 //declare variables 
-
+int nombreDimension = 30;
 /* Fen tre GLUT*/
     glutInit(&argc, argv);
 
@@ -503,7 +567,7 @@ int main(int argc, char **argv)
     fichier.close();
     cout  << "fichier xyz charge" << endl;
     calculExtremumsEtBarycentre();
-    nuage = calculerElevationNuage(nuage);
+    nuage = calculerElevationParQuadrilateres(nuage);
     calculExtremumsEtBarycentre();
 
     cout << "nb de points dans le nuage : " << compteur << endl;
