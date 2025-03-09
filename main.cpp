@@ -26,11 +26,15 @@
 
 
 using namespace std;
-int nombreDeDivisions = 30;
-struct Point3DRgb {
-    double x, y, z;
-    unsigned char r, g, b;
-};
+
+
+int nombreDeDivisions = 100;
+
+vector<vector<int>> intersectionsCount(nombreDeDivisions + 1, vector<int>(nombreDeDivisions + 1, 0));
+vector<vector<float>> couleursMoyennesR, couleursMoyennesG, couleursMoyennesB;
+vector<vector<double>> elevationsMoyennes;
+
+
 
 
 
@@ -161,6 +165,61 @@ vector<point3D<double>> calculerElevationParQuadrilateres(const vector<point3D<d
 
     return nuageTraite;
 }
+void calculerElevationEtCouleursParQuadrilateres(const vector<point3D<double>>& nuageInitial) {
+    double longueurX = Xmax - Xmin;
+    double longueurY = Ymax - Ymin;
+    double pas = (std::min(longueurX, longueurY) / nombreDeDivisions) * 1.05; // Augmenter légèrement la taille des cellules
+
+    // Réinitialisation des tableaux
+    for (int i = 0; i < nombreDeDivisions; i++) {  // Fix: i < nombreDeDivisions au lieu de i <= nombreDeDivisions
+        for (int j = 0; j < nombreDeDivisions; j++) {
+            elevationsMoyennes[i][j] = 0.0;
+            couleursMoyennesR[i][j] = 0.0;
+            couleursMoyennesG[i][j] = 0.0;
+            couleursMoyennesB[i][j] = 0.0;
+            intersectionsCount[i][j] = 0;
+        }
+    }
+
+    // Parcourir chaque point du nuage
+    for (const auto& point : nuageInitial) {
+        // Utiliser `round()` pour éviter les erreurs de troncature
+        int i = floor((point.x - Xmin) / pas);
+        int j = floor((point.y - Ymin) / pas);
+
+        // Correction : limiter aux indices valides
+        if (i < 0) i = 0;
+        if (i >= nombreDeDivisions) i = nombreDeDivisions - 1;
+        if (j < 0) j = 0;
+        if (j >= nombreDeDivisions) j = nombreDeDivisions - 1;
+
+        // Ajouter le point dans la cellule correspondante
+        elevationsMoyennes[i][j] += point.z;
+        couleursMoyennesR[i][j] += point.r / 255.0f;
+        couleursMoyennesG[i][j] += point.g / 255.0f;
+        couleursMoyennesB[i][j] += point.b / 255.0f;
+        intersectionsCount[i][j]++;
+    }
+
+    // Moyenne des valeurs
+    for (int i = 0; i < nombreDeDivisions; i++) {  // Fix: i < nombreDeDivisions au lieu de i <= nombreDeDivisions
+        for (int j = 0; j < nombreDeDivisions; j++) {
+            if (intersectionsCount[i][j] > 0) {
+                elevationsMoyennes[i][j] /= intersectionsCount[i][j];
+                couleursMoyennesR[i][j] /= intersectionsCount[i][j];
+                couleursMoyennesG[i][j] /= intersectionsCount[i][j];
+                couleursMoyennesB[i][j] /= intersectionsCount[i][j];
+            } else {
+                // Si aucun point dans la cellule, utiliser Zmin
+                elevationsMoyennes[i][j] = Zmin;
+                couleursMoyennesR[i][j] = 0.5f; // Gris neutre (modifiable)
+                couleursMoyennesG[i][j] = 0.5f;
+                couleursMoyennesB[i][j] = 0.5f;
+            }
+        }
+    }
+}
+
 
 // Calcul des min, max et barycentre
 void calculExtremumsEtBarycentre() {
@@ -219,7 +278,10 @@ int perspective=20;
 
 void Display()
 {
-
+    elevationsMoyennes.resize(nombreDeDivisions + 1, vector<double>(nombreDeDivisions + 1, 0.0));
+    couleursMoyennesR.resize(nombreDeDivisions + 1, vector<float>(nombreDeDivisions + 1, 0.0));
+    couleursMoyennesG.resize(nombreDeDivisions + 1, vector<float>(nombreDeDivisions + 1, 0.0));
+    couleursMoyennesB.resize(nombreDeDivisions + 1, vector<float>(nombreDeDivisions + 1, 0.0));
 
     glClearColor(0, 0, 0, 0);
 
@@ -283,91 +345,46 @@ void Display()
     srand(42);
 
     glBegin(GL_TRIANGLES);
+    double pasX = (Xmax - Xmin) / (nombreDeDivisions - 1); // Correction
+    double pasY = (Ymax - Ymin) / (nombreDeDivisions - 1); // Correction
 
-    double longueurX = Xmax - Xmin;
-    double longueurY = Ymax - Ymin;
-    double longueurZ = Zmax - Zmin;
-    double pasX = longueurX / nombreDeDivisions;
-    double pasY = longueurY / nombreDeDivisions;
-    double plusPetiteLongueur = std::min(longueurX, longueurY);
-
-    double pas = plusPetiteLongueur / nombreDeDivisions;
-
-// Calculer les élévations des quadrilatères
-    vector<vector<double>> elevationsQuadrilateres(nombreDeDivisions,
-                                                   vector<double>(nombreDeDivisions, Zmin));
-    vector<vector<float>> couleursMoyennesR(nombreDeDivisions,
-                                            vector<float>(nombreDeDivisions, 0.0f));
-    vector<vector<float>> couleursMoyennesG(nombreDeDivisions,
-                                            vector<float>(nombreDeDivisions, 0.0f));
-    vector<vector<float>> couleursMoyennesB(nombreDeDivisions,
-                                            vector<float>(nombreDeDivisions, 0.0f));
-    vector<vector<int>> compteurPoints(nombreDeDivisions,
-                                       vector<int>(nombreDeDivisions, 0));
-
-
-    for (const auto& point : nuage) {
-        int indexX = static_cast<int>((point.x - Xmin) / pasX);
-        int indexY = static_cast<int>((point.y - Ymin) / pasY);
-
-        // Vérifier les bornes
-        indexX = std::max(0, std::min(indexX, nombreDeDivisions - 1));
-        indexY = std::max(0, std::min(indexY, nombreDeDivisions - 1));
-
-        if (indexX >= 0 && indexX < nombreDeDivisions &&
-            indexY >= 0 && indexY < nombreDeDivisions) {
-            elevationsQuadrilateres[indexX][indexY] = std::max(
-                    elevationsQuadrilateres[indexX][indexY],
-                    point.z
-            );
-            // Accumulation des couleurs
-            couleursMoyennesR[indexX][indexY] += point.r;
-            couleursMoyennesG[indexX][indexY] += point.g;
-            couleursMoyennesB[indexX][indexY] += point.b;
-            compteurPoints[indexX][indexY]++;
-
-        }
-    }
-
-// Remplissage des cases avec des couleurs aléatoires
-    for (int i = 0; i < nombreDeDivisions; i++) {
-        for (int j = 0; j < nombreDeDivisions; j++) {
+    for (int i = 0; i < nombreDeDivisions - 1; i++) { // Correction des limites
+        for (int j = 0; j < nombreDeDivisions - 1; j++) {
             double x = Xmin + i * pasX;
             double y = Ymin + j * pasY;
-            double zQuadrilatere = elevationsQuadrilateres[i][j];
 
-            // Calcul de la couleur moyenne
-            float r = 0.0f, g = 0.0f, b = 0.0f;
+            // Sécurisation des indices pour éviter les débordements
+            double z1 = elevationsMoyennes[i][j];
+            double z2 = elevationsMoyennes[i + 1][j];
+            double z3 = elevationsMoyennes[i + 1][j + 1];
+            double z4 = elevationsMoyennes[i][j + 1];
 
-            if (compteurPoints[i][j] > 0) {
-                // Conversion et normalisation des couleurs
-                r = static_cast<float>(couleursMoyennesR[i][j] / compteurPoints[i][j]) / 255.0f;
-                g = static_cast<float>(couleursMoyennesG[i][j] / compteurPoints[i][j]) / 255.0f;
-                b = static_cast<float>(couleursMoyennesB[i][j] / compteurPoints[i][j]) / 255.0f;
-            }
+            float r1 = couleursMoyennesR[i][j], g1 = couleursMoyennesG[i][j], b1 = couleursMoyennesB[i][j];
+            float r2 = couleursMoyennesR[i + 1][j], g2 = couleursMoyennesG[i + 1][j], b2 = couleursMoyennesB[i + 1][j];
+            float r3 = couleursMoyennesR[i + 1][j + 1], g3 = couleursMoyennesG[i + 1][j + 1], b3 = couleursMoyennesB[i + 1][j + 1];
+            float r4 = couleursMoyennesR[i][j + 1], g4 = couleursMoyennesG[i][j + 1], b4 = couleursMoyennesB[i][j + 1];
 
-            // Forcer les valeurs de couleur dans la plage [0, 1]
-            r = std::max(0.0f, std::min(r, 1.0f));
-            g = std::max(0.0f, std::min(g, 1.0f));
-            b = std::max(0.0f, std::min(b, 1.0f));
+            // Triangle 1
+            glColor3f(r1, g1, b1);
+            glVertex3f((x - barycentre.x) / scale, (z1 - barycentre.z) / scale, (y - barycentre.y) / scale);
 
+            glColor3f(r2, g2, b2);
+            glVertex3f((x + pasX - barycentre.x) / scale, (z2 - barycentre.z) / scale, (y - barycentre.y) / scale);
 
+            glColor3f(r3, g3, b3);
+            glVertex3f((x + pasX - barycentre.x) / scale, (z3 - barycentre.z) / scale, (y + pasY - barycentre.y) / scale);
 
-// Premier triangle (P1, P2, P3)
-            glColor3f(r,g, b);
-            glVertex3f((x - barycentre.x) / scale, (zQuadrilatere - barycentre.z) / scale, (y - barycentre.y) / scale);
-            glVertex3f((x + pas - barycentre.x) / scale, (zQuadrilatere - barycentre.z) / scale, (y - barycentre.y) / scale);
-            glVertex3f((x + pas - barycentre.x) / scale, (zQuadrilatere - barycentre.z) / scale, (y + pas - barycentre.y) / scale);
+            // Triangle 2
+            glColor3f(r1, g1, b1);
+            glVertex3f((x - barycentre.x) / scale, (z1 - barycentre.z) / scale, (y - barycentre.y) / scale);
 
-// Deuxième triangle (P1, P3, P4)
-            glColor3f(r, g, b);
-            glVertex3f((x - barycentre.x) / scale, (zQuadrilatere - barycentre.z) / scale, (y - barycentre.y) / scale);
-            glVertex3f((x + pas - barycentre.x) / scale, (zQuadrilatere - barycentre.z) / scale, (y + pas - barycentre.y) / scale);
-            glVertex3f((x - barycentre.x) / scale, (zQuadrilatere - barycentre.z) / scale, (y + pas - barycentre.y) / scale);
+            glColor3f(r3, g3, b3);
+            glVertex3f((x + pasX - barycentre.x) / scale, (z3 - barycentre.z) / scale, (y + pasY - barycentre.y) / scale);
 
+            glColor3f(r4, g4, b4);
+            glVertex3f((x - barycentre.x) / scale, (z4 - barycentre.z) / scale, (y + pasY - barycentre.y) / scale);
         }
     }
-
     glEnd();
 
 
@@ -427,6 +444,7 @@ void Init()
 {
     glEnable(GL_DEPTH_TEST); // activation du test de Z-Buffering
     glutSetCursor(GLUT_CURSOR_NONE); // curseur invisible
+
 }
 
 void Reshape (int width, int height)
@@ -573,7 +591,12 @@ int nombreDimension = 30;
     fichier.close();
     cout  << "fichier xyz charge" << endl;
     calculExtremumsEtBarycentre();
-    nuage = calculerElevationParQuadrilateres(nuage);
+    couleursMoyennesR.assign(nombreDeDivisions + 1, vector<float>(nombreDeDivisions + 1, 0.0));
+    couleursMoyennesG.assign(nombreDeDivisions + 1, vector<float>(nombreDeDivisions + 1, 0.0));
+    couleursMoyennesB.assign(nombreDeDivisions + 1, vector<float>(nombreDeDivisions + 1, 0.0));
+    elevationsMoyennes.assign(nombreDeDivisions + 1, vector<double>(nombreDeDivisions + 1, 0.0));
+
+    calculerElevationEtCouleursParQuadrilateres(nuage);
     calculExtremumsEtBarycentre();
 
     cout << "nb de points dans le nuage : " << compteur << endl;
