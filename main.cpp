@@ -219,7 +219,30 @@ void calculerElevationEtCouleursParQuadrilateres(const vector<point3D<double>>& 
         }
     }
 }
+// Fonction pour interpoler les couleurs selon l'altitude
+void setColorByAltitude(double z) {
+    double minAlt = Zmin;
+    double maxAlt = Zmax;
 
+    // Normalisation entre 0 et 1
+    double normalized = (z - minAlt) / (maxAlt - minAlt);
+
+    float r, g, b;
+
+    if (normalized < 0.5) {
+        // Bleu à Vert (altitudes basses à moyennes)
+        r = 0.0;
+        g = 2 * normalized;
+        b = 1.0 - 2 * normalized;
+    } else {
+        // Vert à Rouge (altitudes moyennes à élevées)
+        r = 2 * (normalized - 0.5);
+        g = 1.0 - 2 * (normalized - 0.5);
+        b = 0.0;
+    }
+
+    glColor3f(r, g, b);
+}
 
 // Calcul des min, max et barycentre
 void calculExtremumsEtBarycentre() {
@@ -365,23 +388,23 @@ void Display()
             float r4 = couleursMoyennesR[i][j + 1], g4 = couleursMoyennesG[i][j + 1], b4 = couleursMoyennesB[i][j + 1];
 
             // Triangle 1
-            glColor3f(r1, g1, b1);
+            setColorByAltitude(z1);
             glVertex3f((x - barycentre.x) / scale, (z1 - barycentre.z) / scale, (y - barycentre.y) / scale);
 
-            glColor3f(r2, g2, b2);
+            setColorByAltitude(z2);
             glVertex3f((x + pasX - barycentre.x) / scale, (z2 - barycentre.z) / scale, (y - barycentre.y) / scale);
 
-            glColor3f(r3, g3, b3);
+            setColorByAltitude(z3);
             glVertex3f((x + pasX - barycentre.x) / scale, (z3 - barycentre.z) / scale, (y + pasY - barycentre.y) / scale);
 
             // Triangle 2
-            glColor3f(r1, g1, b1);
+            setColorByAltitude(z1);
             glVertex3f((x - barycentre.x) / scale, (z1 - barycentre.z) / scale, (y - barycentre.y) / scale);
 
-            glColor3f(r3, g3, b3);
+            setColorByAltitude(z3);
             glVertex3f((x + pasX - barycentre.x) / scale, (z3 - barycentre.z) / scale, (y + pasY - barycentre.y) / scale);
 
-            glColor3f(r4, g4, b4);
+            setColorByAltitude(z4);
             glVertex3f((x - barycentre.x) / scale, (z4 - barycentre.z) / scale, (y + pasY - barycentre.y) / scale);
         }
     }
