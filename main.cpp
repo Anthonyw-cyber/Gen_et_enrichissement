@@ -559,7 +559,7 @@ int nombreDimension = 30;
 
 //*********************************
 
-    ifstream fichier("C:\\Users\\awilhelm\\CLionProjects\\GenET_enrchssement\\st-helensComplete.txt");
+    ifstream fichier("C:\\Users\\awilhelm\\CLionProjects\\GenET_enrchssement\\st-helens.txt");
     if ( !fichier )
     {
         cout << "fichier inexistant" << endl;
