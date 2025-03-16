@@ -354,13 +354,13 @@ void Display()
 
 
 // Premier triangle (P1, P2, P3)
-            glColor3f(r,g, b);
+            glColor3f(1,0, 0);
             glVertex3f((x - barycentre.x) / scale, (zQuadrilatere - barycentre.z) / scale, (y - barycentre.y) / scale);
             glVertex3f((x + pas - barycentre.x) / scale, (zQuadrilatere - barycentre.z) / scale, (y - barycentre.y) / scale);
             glVertex3f((x + pas - barycentre.x) / scale, (zQuadrilatere - barycentre.z) / scale, (y + pas - barycentre.y) / scale);
 
 // Deuxième triangle (P1, P3, P4)
-            glColor3f(r, g, b);
+            glColor3f(0, 1, 0);
             glVertex3f((x - barycentre.x) / scale, (zQuadrilatere - barycentre.z) / scale, (y - barycentre.y) / scale);
             glVertex3f((x + pas - barycentre.x) / scale, (zQuadrilatere - barycentre.z) / scale, (y + pas - barycentre.y) / scale);
             glVertex3f((x - barycentre.x) / scale, (zQuadrilatere - barycentre.z) / scale, (y + pas - barycentre.y) / scale);
